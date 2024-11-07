@@ -1,0 +1,321 @@
+import pygame
+import random
+import time
+
+# Инициализация Pygame
+pygame.init()
+
+pygame.mixer.music.load("D:\meowie\звук.mp3")  # Укажите путь к файлу
+pygame.mixer.music.set_volume(0.4)  # Установка громкости (0.0 до 1.0)
+pygame.mixer.music.play(-1)
+
+# Константы
+CELL_SIZE = 60  # Размер ячейки
+WIDTH, HEIGHT = 1600, 900  # Размер экрана 1600x900
+FPS = 30
+TIME_LIMIT = 300  # 5 минут
+COIN_COUNT = 20  # Увеличенное количество монет
+
+# Цвета
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (200, 200, 200)
+HUD_COLOR = (255, 255, 255)  # Более прозрачный полупрозрачный белый
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+
+def load_and_scale_image(filename, size):
+    """Загрузка изображения и изменение его размера."""
+    image = pygame.image.load(filename)
+    return pygame.transform.scale(image, size)
+
+# Загрузка изображений
+coin_images = [load_and_scale_image(f"{i}.jpg", (CELL_SIZE, CELL_SIZE)) for i in range(1, 9)]
+player_image = load_and_scale_image("ari.png", (CELL_SIZE, CELL_SIZE))
+cover_image = pygame.image.load("коммишка.png")  # Загрузка обложки
+
+def draw_start_screen(screen):
+    font = pygame.font.Font(None, 74)
+    title_text = font.render("Ари & Эннеаграмма", True, BLACK)
+    start_text = font.render("Enter, чтобы начать", True, GREEN)
+    exit_text = font.render("ESC, чтобы выйти", True, RED)
+
+    # Растягиваем изображение на весь экран
+    cover_image_scaled = pygame.transform.scale(cover_image, (WIDTH, HEIGHT))
+    screen.blit(cover_image_scaled, (0, 0))
+
+    # Полупрозрачное окно для текста
+    text_surface = pygame.Surface((700, 400), pygame.SRCALPHA)  # Увеличенное полупрозрачное окно
+    text_surface.fill((255, 255, 255, 150))  # Более прозрачный белый
+
+    screen.blit(text_surface, (WIDTH // 2 - text_surface.get_width() // 2, HEIGHT // 2 - text_surface.get_height() // 2))
+
+    # Отображаем текст на полупрозрачном фоне
+    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 2 - 100))
+    screen.blit(start_text, (WIDTH // 2 - start_text.get_width() // 2, HEIGHT // 2))
+    screen.blit(exit_text, (WIDTH // 2 - exit_text.get_width() // 2, HEIGHT // 2 + 50))
+
+    pygame.display.flip()
+
+def draw_instructions(screen):
+    font = pygame.font.Font(None, 48)
+    instruction_text = [
+        "Героиня Ари попала в сонный лабиринт типологий!",
+        "Цель игры - собрать как можно",
+        "больше монет-эннеатипов.",
+        "Используй стрелки для перемещения.",
+        "Пройди как можно больше уровней",
+        "за пять минут, пока Ари спит!",
+        "Чтобы выйти, нажми ESC.",
+        "",
+        "Нажми 'Продолжить', чтобы начать игру!"
+    ]
+
+    # Полупрозрачное окно для текста
+    text_surface = pygame.Surface((800, 500), pygame.SRCALPHA)
+    text_surface.fill((255, 255, 255, 200))
+
+    screen.blit(text_surface, (WIDTH // 2 - text_surface.get_width() // 2, HEIGHT // 2 - text_surface.get_height() // 2))
+
+    for i, line in enumerate(instruction_text):
+        rendered_text = font.render(line, True, BLACK)
+        screen.blit(rendered_text, (WIDTH // 2 - rendered_text.get_width() // 2, HEIGHT // 2 - 200 + i * 40))
+
+    # Кнопка продолжения
+    continue_button_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 + 80, 200, 50)
+    pygame.draw.rect(screen, GREEN, continue_button_rect)
+    continue_text = font.render("Продолжить", True, BLACK)
+    screen.blit(continue_text, (continue_button_rect.x + 20, continue_button_rect.y + 10))
+
+    pygame.display.flip()
+
+class Player:
+    def __init__(self):
+        self.x, self.y = 1, 1
+        self.coins_collected = 0
+        self.image = player_image
+
+    def move(self, dx, dy, maze):
+        if maze[self.y + dy][self.x + dx] == 0:
+            self.x += dx
+            self.y += dy
+
+def generate_maze(width, height):
+    maze = [[1] * width for _ in range(height)]
+    stack = [(1, 1)]
+    maze[1][1] = 0
+
+    while stack:
+        x, y = stack[-1]
+        neighbors = [(dx, dy) for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]
+                     if 0 < x + dx * 2 < width - 1 and 0 < y + dy * 2 < height - 1 and maze[y + dy * 2][x + dx * 2] == 1]
+        if neighbors:
+            dx, dy = random.choice(neighbors)
+            maze[y + dy][x + dx] = 0
+            maze[y + dy * 2][x + dx * 2] = 0
+            stack.append((x + dx * 2, y + dy * 2))
+        else:
+            stack.pop()
+
+    return maze
+
+def generate_coins(maze, exit_pos, coin_images):
+    coins = []
+    while len(coins) < COIN_COUNT:
+        coin = (random.randint(1, (WIDTH // CELL_SIZE) - 2), random.randint(1, (HEIGHT // CELL_SIZE) - 2))
+        if maze[coin[1]][coin[0]] == 0 and coin != exit_pos and coin not in coins:
+            coin_image_index = random.randint(0, len(coin_images) - 1)
+            coins.append((coin[0], coin[1], coin_image_index))
+    return coins
+
+def draw_game_elements(screen, maze, player, coins, exit_pos):
+    for y, row in enumerate(maze):
+        for x, cell in enumerate(row):
+            color = GRAY if cell else WHITE
+            pygame.draw.rect(screen, color, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
+    for coin in coins:
+        coin_image = coin_images[coin[2]]  # Используем индекс монеты для получения изображения
+        screen.blit(coin_image, (coin[0] * CELL_SIZE, coin[1] * CELL_SIZE))
+
+    screen.blit(player.image, (player.x * CELL_SIZE, player.y * CELL_SIZE))
+    pygame.draw.rect(screen, (0, 0, 255), (exit_pos[0] * CELL_SIZE, exit_pos[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
+def draw_hud(screen, elapsed_time, level, coins_collected):
+    font = pygame.font.Font(None, 36)
+    hud_surface = pygame.Surface((WIDTH, 50), pygame.SRCALPHA)
+    hud_surface.fill(HUD_COLOR)
+
+    time_text = f"Время: {int(TIME_LIMIT - elapsed_time)}"
+    level_text = f"Уровень: {level}"
+    coins_text = f"Эннеатипы: {coins_collected}"
+
+    time_render = font.render(time_text, True, BLACK)
+    level_render = font.render(level_text, True, BLACK)
+    coins_render = font.render(coins_text, True, BLACK)
+
+    hud_surface.blit(time_render, (10, 10))
+    hud_surface.blit(level_render, (250, 10))
+    hud_surface.blit(coins_render, (500, 10))
+
+    screen.blit(hud_surface, (0, 0))
+
+    # Кнопка паузы
+    pause_button_rect = pygame.Rect(WIDTH - 150, 10, 140, 30)
+    pygame.draw.rect(screen, (0, 255, 0), pause_button_rect)  # Зеленая кнопка
+    pause_text = font.render("Пауза", True, BLACK)
+    screen.blit(pause_text, (pause_button_rect.x + 10, pause_button_rect.y + 5))
+
+    # Подсказка
+    hint_text = font.render("ESC для выхода", True, BLACK)
+    screen.blit(hint_text, (WIDTH // 2 - hint_text.get_width() // 2, HEIGHT - 40))
+
+    return pause_button_rect
+
+def show_end_screen(screen, levels_completed, coins_collected):
+    font = pygame.font.Font(None, 48)
+    end_surface = pygame.Surface((300, 200))
+    end_surface.fill(WHITE)
+    end_rect = end_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+
+    while True:
+        screen.fill(BLACK)
+        screen.blit(end_surface, end_rect)
+
+        title_text = font.render("Время вышло!", True, BLACK)
+        screen.blit(title_text, (end_rect.centerx - title_text.get_width() // 2, end_rect.top + 10))
+
+        levels_text = font.render(f"Уровней: {levels_completed}", True, BLACK)
+        coins_text = font.render(f"Монет: {coins_collected}", True, BLACK)
+
+        screen.blit(levels_text, (end_rect.centerx - levels_text.get_width() // 2, end_rect.top + 80))
+        screen.blit(coins_text, (end_rect.centerx - coins_text.get_width() // 2, end_rect.top + 130))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                return
+
+        pygame.display.flip()
+
+def main():
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Ари & Эннеаграмма")
+    clock = pygame.time.Clock()
+
+    player = Player()
+    level = 1
+    running = True
+
+    # Экран приветствия
+    draw_start_screen(screen)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:  # Начать игру
+                    break
+                if event.key == pygame.K_ESCAPE:  # Выйти
+                    pygame.quit()
+                    return
+        else:
+            continue
+        break
+
+    # Страница с инструкцией
+    draw_instructions(screen)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Левая кнопка мыши
+                    continue_button_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 + 80, 200, 50)
+                    if continue_button_rect.collidepoint(event.pos):
+                        break
+        else:
+            continue
+        break
+
+    total_time = 0  # Общее время
+
+    while running and level <= 100:
+        maze = generate_maze(WIDTH // CELL_SIZE, HEIGHT // CELL_SIZE)
+        exit_pos = (WIDTH // CELL_SIZE - 2, HEIGHT // CELL_SIZE - 2)
+        maze[exit_pos[1]][exit_pos[0]] = 0
+
+        coins = generate_coins(maze, exit_pos, coin_images)
+
+        player.x, player.y = 1, 1
+        start_time = time.time()
+
+        paused = False
+
+        while running:
+            screen.fill(WHITE)
+            elapsed_time = time.time() - start_time + total_time
+
+            if elapsed_time > TIME_LIMIT:
+                show_end_screen(screen, level - 1, player.coins_collected)
+                running = False
+                break
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Левая кнопка мыши
+                        pause_button_rect = draw_hud(screen, elapsed_time, level, player.coins_collected)
+                        if pause_button_rect.collidepoint(event.pos):
+                            paused = not paused  # Переключаем состояние паузы
+
+            if paused:
+                # Отображаем меню паузы
+                pause_surface = pygame.Surface((300, 200))
+                pause_surface.fill((200, 200, 200, 150))
+                pause_rect = pause_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+                screen.blit(pause_surface, pause_rect)
+
+                pause_text = pygame.font.Font(None, 48).render("Пауза", True, BLACK)
+                screen.blit(pause_text, (pause_rect.centerx - pause_text.get_width() // 2, pause_rect.top + 20))
+
+                resume_text = pygame.font.Font(None, 36).render("Нажмите, чтобы продолжить", True, BLACK)
+                screen.blit(resume_text, (pause_rect.centerx - resume_text.get_width() // 2, pause_rect.top + 80))
+
+                exit_text = pygame.font.Font(None, 36).render("ESC для выхода", True, BLACK)
+                screen.blit(exit_text, (pause_rect.centerx - exit_text.get_width() // 2, pause_rect.top + 120))
+
+                pygame.display.flip()
+                continue  # Пропускаем дальнейшую обработку
+
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT]: player.move(-1, 0, maze)
+            if keys[pygame.K_RIGHT]: player.move(1, 0, maze)
+            if keys[pygame.K_UP]: player.move(0, -1, maze)
+            if keys[pygame.K_DOWN]: player.move(0, 1, maze)
+
+            for coin in coins[:]:
+                if player.x == coin[0] and player.y == coin[1]:
+                    coins.remove(coin)
+                    player.coins_collected += 1
+
+            if player.x == exit_pos[0] and player.y == exit_pos[1]:
+                level += 1
+                total_time += time.time() - start_time  # Сохраняем время, затраченное на уровень
+                break
+
+            draw_game_elements(screen, maze, player, coins, exit_pos)
+            draw_hud(screen, elapsed_time, level, player.coins_collected)
+            pygame.display.flip()
+            clock.tick(FPS)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
