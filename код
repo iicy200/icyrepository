@@ -299,7 +299,10 @@ def main():
             if keys[pygame.K_UP]: player.move(0, -1, maze)
             if keys[pygame.K_DOWN]: player.move(0, 1, maze)
 
-
+            for coin in coins[:]:
+                if player.x == coin[0] and player.y == coin[1]:
+                    coins.remove(coin)
+                    player.coins_collected += 1
 
             if player.x == exit_pos[0] and player.y == exit_pos[1]:
                 level += 1
