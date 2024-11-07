@@ -9,7 +9,6 @@ pygame.mixer.music.load("D:\meowie\звук.mp3")  # Укажите путь к 
 pygame.mixer.music.set_volume(0.4)  # Установка громкости (0.0 до 1.0)
 pygame.mixer.music.play(-1)
 
-# Константы
 CELL_SIZE = 60  # Размер ячейки
 WIDTH, HEIGHT = 1600, 900  # Размер экрана 1600x900
 FPS = 30
